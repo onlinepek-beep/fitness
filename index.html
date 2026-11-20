@@ -31,7 +31,7 @@ input,button{font:inherit}button{cursor:pointer}button:focus-visible,[tabindex]:
 <div class="panel"><h3>Внешний вид</h3><p class="muted">Выбери комфортное оформление приложения.</p><div class="row-actions"><button class="small-btn" data-theme-choice="light">Светлая</button><button class="small-btn" data-theme-choice="dark">Тёмная</button><button class="small-btn" data-theme-choice="system">Как на устройстве</button></div></div>
 <div class="panel"><h3>Резервная копия</h3><p>История занятий и настройки хранятся в этом браузере. Экспортируй копию перед сменой устройства.</p><div class="row-actions"><button id="export" class="small-btn">Экспортировать</button><button id="import" class="small-btn">Импортировать</button></div><input class="hidden" type="file" id="file" accept="application/json"><p class="muted">iPhone: Safari → Поделиться → На экран «Домой». Android: Chrome → Установить приложение.</p></div>
 <div class="panel"><h3>Медицинские уточнения</h3><p>№6, 8 и 23: неоднозначности дыхательных фаз в оригинальном назначении. №31: указаны повороты корпуса и одновременно запрет скручивания. Не выполнять №31 до уточнения у врача.</p><p class="muted">Приложение помогает фиксировать выполнение назначения, но не оценивает безопасность упражнений и не заменяет врача.</p></div>
-<div class="panel"><h3>Основа программы</h3><p>31 упражнение из двух листов врачебного назначения. Оригинальный текст, последовательность, дыхательные указания и дозировка сохраняются без исправлений. Пояснения и медицинский разбор размещаются отдельно и не заменяют назначение.</p></div><details class="panel"><summary>Администрирование иллюстраций</summary><p class="muted">Добавляй готовые изображения к упражнениям. На этом этапе они сохраняются локально в браузере на этом устройстве и не синхронизируются с другими устройствами.</p><label for="adminExercise">Упражнение</label><select id="adminExercise" class="search"></select><label for="adminImage">Файл изображения</label><input id="adminImage" type="file" accept="image/*" class="search"><img id="adminPreview" class="hidden" alt="Предпросмотр иллюстрации" style="width:100%;aspect-ratio:4/3;object-fit:contain;border:1px solid var(--line);border-radius:14px;background:var(--bg)"><div class="row-actions"><button class="small-btn" id="saveAdminImage" disabled>Сохранить иллюстрацию</button><button class="small-btn" id="removeAdminImage">Удалить иллюстрацию</button></div><p id="adminStatus" class="muted">Изображения будут появляться в карточках упражнений на этом устройстве.</p></details></section></main>
+<div class="panel"><h3>Основа программы</h3><p>31 упражнение из двух листов врачебного назначения. Оригинальный текст, последовательность, дыхательные указания и дозировка сохраняются без исправлений. Пояснения и медицинский разбор размещаются отдельно и не заменяют назначение.</p></div><details class="panel"><summary>Администрирование иллюстраций</summary><p class="muted">Добавляй готовые изображения к упражнениям. На этом этапе они сохраняются локально в браузере на этом устройстве и не синхронизируются с другими устройствами.</p><label for="adminExercise">Упражнение</label><select id="adminExercise" class="search"></select><label for="adminImage">Файл изображения</label><input id="adminImage" type="file" accept="image/*" class="search"><img id="adminPreview" class="hidden" alt="Предпросмотр иллюстрации" style="width:100%;aspect-ratio:4/3;object-fit:contain;border:1px solid var(--line);border-radius:14px;background:var(--bg)"><div class="row-actions"><button class="small-btn" id="saveAdminImage" disabled>Сохранить иллюстрацию</button><button class="small-btn" id="removeAdminImage">Удалить иллюстрацию</button></div><p id="adminStatus" class="muted">Файлы сохраняются в IndexedDB только в этом браузере. Они не загружаются в GitHub и не входят в JSON-резервную копию. Лимит одного изображения — 15 МБ.</p></details></section></main>
 <nav class="tabs"><button class="active" data-tab="home">Комплекс</button><button data-tab="history">История</button><button data-tab="settings">Настройки</button></nav>
 <script>
 const sections=[["Лёжа на животе",1,7],["Лёжа на спине",8,15],["Лёжа на боку",16,20],["На четвереньках",21,25],["Стоя на коленях",26,29],["Стоя",30,31]];
@@ -70,13 +70,40 @@ function imageDb(){
  if(!imageDbPromise)imageDbPromise=new Promise((resolve,reject)=>{
   const req=indexedDB.open(IMAGE_DB_NAME,1);
   req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(IMAGE_STORE))req.result.createObjectStore(IMAGE_STORE)};
-  req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  req.onsuccess=()=>{req.result.onversionchange=()=>req.result.close();resolve(req.result)};
+  req.onerror=()=>{imageDbPromise=null;reject(req.error||new Error("Не удалось открыть хранилище"))};
+  req.onblocked=()=>{imageDbPromise=null;reject(new Error("Хранилище занято другой вкладкой"))};
  });
  return imageDbPromise;
 }
-async function imageGet(id){const db=await imageDb();return new Promise((resolve,reject)=>{const tx=db.transaction(IMAGE_STORE,"readonly"),req=tx.objectStore(IMAGE_STORE).get(String(id));req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)})}
-async function imagePut(id,blob){const db=await imageDb();return new Promise((resolve,reject)=>{const tx=db.transaction(IMAGE_STORE,"readwrite");tx.objectStore(IMAGE_STORE).put(blob,String(id));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
-async function imageDelete(id){const db=await imageDb();return new Promise((resolve,reject)=>{const tx=db.transaction(IMAGE_STORE,"readwrite");tx.objectStore(IMAGE_STORE).delete(String(id));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
+async function imageGet(id){
+ const db=await imageDb();
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction(IMAGE_STORE,"readonly"),req=tx.objectStore(IMAGE_STORE).get(String(id));
+  req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
+  tx.onabort=()=>reject(tx.error||new Error("Чтение прервано"));
+ });
+}
+async function imagePut(id,blob){
+ const db=await imageDb();
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction(IMAGE_STORE,"readwrite");
+  tx.objectStore(IMAGE_STORE).put(blob,String(id));
+  tx.oncomplete=()=>resolve();
+  tx.onerror=()=>reject(tx.error||new Error("Запись не удалась"));
+  tx.onabort=()=>reject(tx.error||new Error("Запись отменена"));
+ });
+}
+async function imageDelete(id){
+ const db=await imageDb();
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction(IMAGE_STORE,"readwrite");
+  tx.objectStore(IMAGE_STORE).delete(String(id));
+  tx.oncomplete=()=>resolve();
+  tx.onerror=()=>reject(tx.error||new Error("Удаление не удалось"));
+  tx.onabort=()=>reject(tx.error||new Error("Удаление отменено"));
+ });
+}
 async function loadExerciseImage(id){
  const area=document.getElementById("exerciseImageArea");if(!area)return;
  try{const blob=await imageGet(id);if(!blob){area.innerHTML='<div class="image-placeholder">Иллюстрация пока не добавлена</div>';return}
@@ -88,11 +115,43 @@ function initAdminImages(){
  const select=document.getElementById("adminExercise"),file=document.getElementById("adminImage"),preview=document.getElementById("adminPreview"),saveBtn=document.getElementById("saveAdminImage"),removeBtn=document.getElementById("removeAdminImage"),status=document.getElementById("adminStatus");
  if(!select||!file||!preview||!saveBtn||!removeBtn||!status)return;
  select.innerHTML=E.map((e,i)=>'<option value="'+(i+1)+'">№'+(i+1)+' — '+e[0]+'</option>').join("");
- const refresh=async()=>{adminSelectedFile=null;file.value="";saveBtn.disabled=true;const blob=await imageGet(+select.value).catch(()=>null);if(blob){preview.src=URL.createObjectURL(blob);preview.classList.remove("hidden");status.textContent="Для этого упражнения иллюстрация уже сохранена на этом устройстве."}else{preview.removeAttribute("src");preview.classList.add("hidden");status.textContent="Для этого упражнения иллюстрация ещё не добавлена."}};
+ const clearPreviewUrl=()=>{if(adminPreviewUrl){URL.revokeObjectURL(adminPreviewUrl);adminPreviewUrl=null}};
+ const refresh=async()=>{
+  const requestedId=+select.value;
+  adminSelectedFile=null;file.value="";saveBtn.disabled=true;clearPreviewUrl();
+  const blob=await imageGet(requestedId).catch(()=>null);
+  if(+select.value!==requestedId)return;
+  if(blob){adminPreviewUrl=URL.createObjectURL(blob);preview.src=adminPreviewUrl;preview.classList.remove("hidden");status.textContent="Иллюстрация сохранена локально на этом устройстве."}
+  else{preview.removeAttribute("src");preview.classList.add("hidden");status.textContent="Для этого упражнения иллюстрация ещё не добавлена."}
+ };
  select.onchange=()=>refresh();
- file.onchange=()=>{adminSelectedFile=file.files?.[0]||null;if(!adminSelectedFile){saveBtn.disabled=true;return}if(!adminSelectedFile.type.startsWith("image/")){status.textContent="Выбери файл изображения.";saveBtn.disabled=true;return}const reader=new FileReader();reader.onload=()=>{preview.src=reader.result;preview.classList.remove("hidden")};reader.readAsDataURL(adminSelectedFile);saveBtn.disabled=false;status.textContent="Предпросмотр готов. Нажми «Сохранить иллюстрацию»."};
- saveBtn.onclick=async()=>{if(!adminSelectedFile)return;try{await imagePut(+select.value,adminSelectedFile);adminSelectedFile=null;file.value="";saveBtn.disabled=true;status.textContent="Иллюстрация сохранена на этом устройстве.";if(selected===+select.value)loadExerciseImage(selected)}catch(err){status.textContent="Не удалось сохранить файл. Возможно, недостаточно места в хранилище."}};
- removeBtn.onclick=async()=>{try{await imageDelete(+select.value);preview.removeAttribute("src");preview.classList.add("hidden");status.textContent="Иллюстрация удалена с этого устройства.";if(selected===+select.value)loadExerciseImage(selected)}catch(err){status.textContent="Не удалось удалить иллюстрацию."}};
+ file.onchange=()=>{
+  adminSelectedFile=file.files?.[0]||null;
+  if(!adminSelectedFile){saveBtn.disabled=true;return}
+  if(!adminSelectedFile.type.startsWith("image/")){status.textContent="Выбери файл изображения.";saveBtn.disabled=true;return}
+  if(adminSelectedFile.size>15*1024*1024){status.textContent="Файл больше 15 МБ. Выбери изображение меньшего размера.";saveBtn.disabled=true;return}
+  clearPreviewUrl();adminPreviewUrl=URL.createObjectURL(adminSelectedFile);preview.src=adminPreviewUrl;preview.classList.remove("hidden");
+  saveBtn.disabled=false;status.textContent="Предпросмотр готов. Нажми «Сохранить иллюстрацию».";
+ };
+ saveBtn.onclick=async()=>{
+  if(!adminSelectedFile)return;
+  const targetId=+select.value;
+  try{
+   await imagePut(targetId,adminSelectedFile);
+   adminSelectedFile=null;file.value="";saveBtn.disabled=true;
+   status.textContent="Иллюстрация сохранена локально. Она останется на этом устройстве после закрытия приложения.";
+   await refresh();
+   if(selected===targetId)loadExerciseImage(targetId);
+  }catch(err){status.textContent="Не удалось сохранить файл. Возможно, закончилось место в хранилище браузера."}
+ };
+ removeBtn.onclick=async()=>{
+  const targetId=+select.value;
+  try{
+   await imageDelete(targetId);adminSelectedFile=null;file.value="";saveBtn.disabled=true;clearPreviewUrl();preview.removeAttribute("src");preview.classList.add("hidden");
+   status.textContent="Иллюстрация удалена с этого устройства.";
+   if(selected===targetId)loadExerciseImage(targetId);
+  }catch(err){status.textContent="Не удалось удалить иллюстрацию."}
+ };
  refresh();
 }
 function done(id){refreshDay();return store[day]?.[id]===true}
@@ -165,6 +224,7 @@ let ok=false;try{ok=document.execCommand("copy")}catch(err){ok=false}area.remove
 }
 function open(id){
 selected=id;
+if(activeImageUrl){URL.revokeObjectURL(activeImageUrl);activeImageUrl=null}
 let e=E[id-1],warning=id===31?"В назначении одновременно указаны поворот и запрет скручивания. Не выполнять №31 до уточнения у врача ЛФК.":[6,8,23].includes(id)?"В исходном листе есть неоднозначность дыхательной фазы. Не исправляй её самостоятельно; уточни формулировку у врача ЛФК.":"";
 
 detailEl.innerHTML='<div class="muted">УПРАЖНЕНИЕ '+id+' · '+group(id)+'</div><h2>'+e[0]+'</h2><div id="exerciseImageArea" class="exercise-image-area"><div class="image-placeholder">Иллюстрация пока не добавлена</div></div><div class="row-actions prompt-row"><button class="small-btn" id="copyPromptBtn" '+(id===1||id===31?'disabled':'')+'>'+(id===1?'Промпт недоступен: техника не описана':id===31?'Промпт недоступен: противоречие в назначении':'Скопировать промпт для иллюстрации')+'</button></div><details class="panel" open><summary>Оригинал назначения — дословно</summary><p>'+e[1]+'</p></details><details class="panel" open><summary>Понятное объяснение</summary><p>'+expandedInstruction(id,e)+'</p><p class="muted">Редакционное пояснение для понимания текста. Оно не изменяет исходную технику, дыхание или дозировку.</p></details><div class="meta-grid"><div class="meta"><small>Исходное положение</small><b style="font-size:15px">'+positionText(id)+'</b></div><div class="meta"><small>Дозировка из назначения</small><b style="font-size:15px">'+e[2]+'</b></div></div><details class="panel"><summary>Биомеханика и предполагаемая задача</summary><p>'+MEDICAL[id-1].bio+'</p><p class="muted">Механическая интерпретация — не подтверждение лечебного эффекта и не назначение менять технику.</p></details><details class="panel"><summary>Что известно медицинскому сообществу</summary><p>'+MEDICAL[id-1].evidence+'</p><p class="muted">Общая доказательная база относится к программам ЛФК, а не к доказанной эффективности именно этого движения: <a href="https://www.nice.org.uk/guidance/ng59/chapter/Recommendations" target="_blank" rel="noopener">NICE NG59 (обновлено 29.07.2026)</a> · <a href="https://www.cochrane.org/evidence/CD009790_exercise-treatment-chronic-low-back-pain" target="_blank" rel="noopener">Cochrane, 2021</a> · <a href="https://doi.org/10.2519/jospt.2021.0304" target="_blank" rel="noopener">JOSPT, 2021</a>.</p></details>'+(warning?'<div class="warning">'+warning+'</div>':"")+'<button class="primary" id="mark" '+(id===31?"disabled":"")+'>'+(id===31?"Отметка недоступна до уточнения":done(id)?"Отменить отметку":"Отметить выполненным")+'</button><div class="nav-exercise-actions"><button class="small-btn" id="prev" '+(id===1?'disabled':'')+'>← Предыдущее</button><button class="small-btn" id="next" '+(id===31?'disabled':'')+'>Следующее →</button></div>';
