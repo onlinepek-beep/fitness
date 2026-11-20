@@ -39,6 +39,7 @@ if (host) {
     const torsoPivot = new THREE.Group();
     torsoPivot.position.set(0, 1.12, 0);
     body.add(torsoPivot);
+    const spineSegments = [];
 
     function capsule(parent, radius, length, color, position, rotationZ = 0) {
       const mesh = new THREE.Mesh(
@@ -72,8 +73,22 @@ if (host) {
       return mesh;
     }
 
-    capsule(torsoPivot, 0.24, 0.95, shirt, [0, 0, 0], Math.PI / 2);
+    // Segmented trunk: four overlapping sections allow a visible spinal flexion/extension arc.
+    for (let i = 0; i < 4; i++) {
+      const pivot = new THREE.Group();
+      pivot.position.set(-0.34 + i * 0.22, 0, 0);
+      torsoPivot.add(pivot);
+      capsule(pivot, 0.205, 0.18, shirt, [0.11, 0, 0], Math.PI / 2);
+      spineSegments.push(pivot);
+    }
     capsule(torsoPivot, 0.19, 0.32, shorts, [-0.55, -0.06, 0], Math.PI / 2);
+    const spineGlow = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.035, 0.62, 5, 10),
+      new THREE.MeshBasicMaterial({ color: 0x32a6c8, transparent: true, opacity: 0.82 })
+    );
+    spineGlow.position.set(-0.02, -0.19, 0.205);
+    spineGlow.rotation.z = Math.PI / 2;
+    torsoPivot.add(spineGlow);
     const headPivot = new THREE.Group();
     headPivot.position.set(0.72, 0.07, 0);
     torsoPivot.add(headPivot);
@@ -114,7 +129,7 @@ if (host) {
     if (reset) reset.addEventListener("click", () => {
       playing = false;
       phase = 0;
-      torsoPivot.rotation.z = 0;
+      spineSegments.forEach(p => p.rotation.z = 0);
       headPivot.rotation.z = 0;
       if (play) play.textContent = "▶ Показать движение";
     });
@@ -135,14 +150,19 @@ if (host) {
       requestAnimationFrame(animate);
       if (playing) {
         phase += 0.018;
-        torsoPivot.rotation.z = Math.sin(phase) * 0.18;
-        headPivot.rotation.z = -Math.sin(phase) * 0.08;
+        const arch = Math.sin(phase);
+        // Inhale: lumbar area arches upward and head lowers. Exhale: spine gently returns.
+        spineSegments.forEach((p, i) => {
+          const weight = [0.20, 0.48, 0.72, 0.42][i];
+          p.rotation.z = -arch * weight * 0.23;
+        });
+        headPivot.rotation.z = arch * 0.10;
       }
       controls.update();
       renderer.render(scene, camera);
     }
     animate();
-    status.textContent = "Технический 3D-манекен";
+    status.textContent = "Анимационный прототип · №21";
   } catch (error) {
     host.textContent = "Не удалось запустить 3D-просмотрщик. Проверь подключение к интернету.";
     if (status) status.textContent = "Ошибка загрузки";
