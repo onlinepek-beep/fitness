@@ -48,9 +48,9 @@ function normalizeStore(raw){
  const out={};
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return out;
  for(const [date,entry] of Object.entries(raw)){
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||!entry||typeof entry!=="object"||Array.isArray(entry))continue;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!entry||typeof entry!=="object"||Array.isArray(entry))continue;
   const clean={};
-  for(const [id,value] of Object.entries(entry)){if(/^(?:[1-9]|[12]\\d|3[01])$/.test(id)&&value===true)clean[id]=true}
+  for(const [id,value] of Object.entries(entry)){if(/^(?:[1-9]|[12]\d|3[01])$/.test(id)&&value===true)clean[id]=true}
   if(Object.keys(clean).length)out[date]=clean;
  }
  return out;
@@ -253,9 +253,9 @@ fileInput.onchange=async()=>{
 function completedIds(date){
  const entry=store[date];
  if(!entry||typeof entry!=="object")return [];
- return Object.keys(entry).filter(id=>/^(?:[1-9]|[12]\\d|3[01])$/.test(id)&&entry[id]===true).map(Number).sort((a,b)=>a-b);
+ return Object.keys(entry).filter(id=>/^(?:[1-9]|[12]\d|3[01])$/.test(id)&&entry[id]===true).map(Number).sort((a,b)=>a-b);
 }
-function validHistoryDates(){return Object.keys(store).filter(k=>/^\\d{4}-\\d{2}-\\d{2}$/.test(k)&&completedIds(k).length>0).sort((a,b)=>b.localeCompare(a))}
+function validHistoryDates(){return Object.keys(store).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&completedIds(k).length>0).sort((a,b)=>b.localeCompare(a))}
 function renderHistory(){
  refreshDay();
  const y=calendarDate.getFullYear(),m=calendarDate.getMonth(),first=new Date(y,m,1),days=new Date(y,m+1,0).getDate(),offset=(first.getDay()+6)%7;
