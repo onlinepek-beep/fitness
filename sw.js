@@ -1,5 +1,5 @@
-const CACHE="lfk-fitness-v5";
-const FILES=["./","./index.html","./manifest.webmanifest"];
+const CACHE="lfk-fitness-v6";
+const FILES=["./","./index.html","./manifest.webmanifest","./viewer.js","./media/exercise-21-cat-cow.webp"];
 self.addEventListener("install",event=>event.waitUntil((async()=>{const cache=await caches.open(CACHE);await cache.addAll(FILES);await self.skipWaiting()})()));
 self.addEventListener("activate",event=>event.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)));await self.clients.claim()})()));
 self.addEventListener("fetch",event=>{
