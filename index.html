@@ -64,7 +64,7 @@ function applyTheme(){
 }
 applyTheme();store=normalizeStore(storedState&&storedState.store&&typeof storedState.store==="object"?storedState.store:storedState);
 const IMAGE_DB_NAME="lfk-illustrations",IMAGE_STORE="images";
-let imageDbPromise=null,activeImageUrl=null,adminSelectedFile=null;
+let imageDbPromise=null,activeImageUrl=null,adminSelectedFile=null,adminPreviewUrl=null;
 function imageDb(){
  if(!("indexedDB" in window))return Promise.reject(new Error("IndexedDB недоступен"));
  if(!imageDbPromise)imageDbPromise=new Promise((resolve,reject)=>{
@@ -106,10 +106,15 @@ async function imageDelete(id){
 }
 async function loadExerciseImage(id){
  const area=document.getElementById("exerciseImageArea");if(!area)return;
- try{const blob=await imageGet(id);if(!blob){area.innerHTML='<div class="image-placeholder">Иллюстрация пока не добавлена</div>';return}
-  if(activeImageUrl)URL.revokeObjectURL(activeImageUrl);activeImageUrl=URL.createObjectURL(blob);
+ area.innerHTML='<div class="image-placeholder">Загружаю иллюстрацию…</div>';
+ try{
+  const blob=await imageGet(id);
+  if(selected!==id||!document.getElementById("exerciseImageArea"))return;
+  if(activeImageUrl){URL.revokeObjectURL(activeImageUrl);activeImageUrl=null}
+  if(!blob){area.innerHTML='<div class="image-placeholder">Иллюстрация пока не добавлена</div>';return}
+  activeImageUrl=URL.createObjectURL(blob);
   area.innerHTML='<img src="'+activeImageUrl+'" alt="Иллюстрация к упражнению №'+id+'">';
- }catch(err){area.innerHTML='<div class="image-placeholder">Не удалось загрузить иллюстрацию</div>'}
+ }catch(err){if(selected===id)area.innerHTML='<div class="image-placeholder">Не удалось загрузить иллюстрацию</div>'}
 }
 function initAdminImages(){
  const select=document.getElementById("adminExercise"),file=document.getElementById("adminImage"),preview=document.getElementById("adminPreview"),saveBtn=document.getElementById("saveAdminImage"),removeBtn=document.getElementById("removeAdminImage"),status=document.getElementById("adminStatus");
